@@ -36,6 +36,7 @@
 #include "hw/qdev-properties.h"
 #include "qemu/option.h"
 #include "hw/qdev-core.h"
+#include "hw/qdev-clock.h"
 
 /* platform specific imports */
 #ifdef TARGET_ARM
@@ -76,6 +77,8 @@ typedef AVRCPU THISCPU;
 #include "qapi/qmp/qdict.h"
 #include "qapi/qmp/qlist.h"
 
+#define SYSCLK_FRQ 24000000
+#define REFCLK_FRQ (1 * 1000 * 1000)
 
 void avatar_cm_set_entry_point(QDict *conf, THISCPU *cpuu);
 
@@ -529,6 +532,13 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
 #if defined(TARGET_ARM)
 
 #if !defined(TARGET_AARCH64)
+    Clock *sysclk, *refclk;
+
+    sysclk = clock_new(OBJECT(ms), "SYSCLK");
+    clock_set_hz(sysclk, SYSCLK_FRQ);
+    refclk = clock_new(OBJECT(ms), "REFCLK");
+    clock_set_hz(refclk, REFCLK_FRQ);
+
     //create armv7m cpus together with nvic
     if (!strcmp(cpu_type, "cortex-m3")) {
 
@@ -540,6 +550,8 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
         dstate = qdev_new("armv7m");
         qdev_prop_set_uint32(dstate, "num-irq", num_irq);
         qdev_prop_set_string(dstate, "cpu-type", ARM_CPU_TYPE_NAME("cortex-m3"));
+        qdev_connect_clock_in(dstate, "cpuclk", sysclk);
+        qdev_connect_clock_in(dstate, "refclk", refclk);
         object_property_set_link(OBJECT(dstate), "memory",
         OBJECT(get_system_memory()), &error_abort);
         qdev_realize_and_unref(dstate, sysbus, NULL);
@@ -557,6 +569,8 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
         dstate = qdev_new("armv7m");
         qdev_prop_set_uint32(dstate, "num-irq", num_irq);
         qdev_prop_set_string(dstate, "cpu-type", ARM_CPU_TYPE_NAME("cortex-m33"));
+        qdev_connect_clock_in(dstate, "cpuclk", sysclk);
+        qdev_connect_clock_in(dstate, "refclk", refclk);
         object_property_set_link(OBJECT(dstate), "memory",
         OBJECT(get_system_memory()), &error_abort);
         qdev_realize_and_unref(dstate, sysbus, NULL);
